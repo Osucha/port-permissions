@@ -38,6 +38,6 @@ class EndToEndTest {
 
     private fun guardFor(grants: List<Grant>): AccessGuard {
         val session = GrantResolver(catalog).resolve(grants)
-        return GrantedPermissionsAccessGuard { session }
+        return DefaultAccessGuard { session }
     }
 }

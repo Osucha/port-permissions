@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
@@ -6,7 +7,7 @@ plugins {
 
 subprojects {
     group = "com.osucha"
-    version = "0.1.0"
+    version = "0.2.0"
 
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "maven-publish")
@@ -18,6 +19,11 @@ subprojects {
     extensions.configure<KotlinJvmProjectExtension> {
         jvmToolchain(21)
         explicitApi()
+        compilerOptions {
+            // Consumers on Kotlin 2.3 must be able to read the metadata; checked by the consumer-check CI job.
+            languageVersion = KotlinVersion.KOTLIN_2_3
+            apiVersion = KotlinVersion.KOTLIN_2_3
+        }
     }
 
     extensions.configure<JavaPluginExtension> {

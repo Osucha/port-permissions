@@ -16,7 +16,7 @@ class GuardedUseCasesTest {
 
     @Test
     fun `reports operations that neither require a permission nor are public`() {
-        GuardedUseCases.unguarded(fixtures) shouldContainExactly listOf("CancelOrderService.cancelAll")
+        GuardedUseCases.unguarded(fixtures) shouldContainExactly listOf("CancelOrderService.cancelAll", "ImportOrdersService.import")
     }
 
     @Test
