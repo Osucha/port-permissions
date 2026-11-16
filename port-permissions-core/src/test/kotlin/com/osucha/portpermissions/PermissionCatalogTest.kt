@@ -58,4 +58,50 @@ class PermissionCatalogTest {
 
         error.keys shouldBe setOf("billing.invoices.void", "hr.salaries.view")
     }
+
+    @Test
+    fun `exposes the scope of every permission`() {
+        val withProjects = PermissionCatalog(listOf(ProjectsPermissions))
+
+        withProjects.permissions.associate { it.key to it.scope } shouldBe
+            mapOf(
+                "projects.projects.create" to null,
+                "projects.run.start" to "project",
+                "projects.run.view" to "project",
+                "projects.team.manage" to "team",
+            )
+    }
+
+    @Test
+    fun `ensureValid accepts consistent grants`() {
+        val withProjects = PermissionCatalog(listOf(ProjectsPermissions))
+
+        shouldNotThrowAny {
+            withProjects.ensureValid(
+                listOf(
+                    Grant("projects.projects.create", GrantLevel.GROUP, true),
+                    Grant("projects.run.start", GrantLevel.GROUP, true),
+                    Grant("projects.team.manage", GrantLevel.USER, false, scope = "42"),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `ensureValid rejects a scope on a global permission and a malformed scope key`() {
+        val withProjects = PermissionCatalog(listOf(ProjectsPermissions))
+        val onGlobal = Grant("projects.projects.create", GrantLevel.GROUP, true, scope = "p-1")
+        val malformed = Grant("projects.team.manage", GrantLevel.GROUP, true, scope = "not-a-number")
+
+        val error = shouldThrow<InvalidGrantException> { withProjects.ensureValid(listOf(onGlobal, malformed)) }
+
+        error.grants shouldBe listOf(onGlobal, malformed)
+    }
+
+    @Test
+    fun `ensureValid reports unknown keys first`() {
+        shouldThrow<UnknownPermissionException> {
+            catalog.ensureValid(listOf(Grant("hr.salaries.view", GrantLevel.USER, true)))
+        }
+    }
 }

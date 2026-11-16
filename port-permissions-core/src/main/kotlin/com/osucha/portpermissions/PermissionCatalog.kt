@@ -12,7 +12,7 @@ package com.osucha.portpermissions
 public class PermissionCatalog(
     sets: Iterable<PermissionSet>,
 ) {
-    private val byKey: Map<String, Permission>
+    private val byKey: Map<String, PermissionDefinition>
 
     init {
         val all = sets.distinct().flatMap { it.permissions }
@@ -21,15 +21,15 @@ public class PermissionCatalog(
         byKey = all.sortedWith(compareBy({ it.module }, { it.key })).associateBy { it.key }
     }
 
-    /** All permissions, ordered by module and key. */
-    public val permissions: List<Permission>
+    /** All permissions, ordered by module and key. [PermissionDefinition.scope] tells global from scoped. */
+    public val permissions: List<PermissionDefinition>
         get() = byKey.values.toList()
 
     /** Permissions grouped by owning module, for rendering a management screen. */
-    public val modules: Map<String, List<Permission>>
+    public val modules: Map<String, List<PermissionDefinition>>
         get() = permissions.groupBy { it.module }
 
-    public operator fun get(key: String): Permission? = byKey[key]
+    public operator fun get(key: String): PermissionDefinition? = byKey[key]
 
     public operator fun contains(key: String): Boolean = key in byKey
 
@@ -42,4 +42,23 @@ public class PermissionCatalog(
         val unknown = keys.filterNot { it in byKey }.toSet()
         if (unknown.isNotEmpty()) throw UnknownPermissionException(unknown)
     }
+
+    /**
+     * [ensureKnown] plus scope consistency: a global permission takes no scope, and a scope key must
+     * parse as the permission's scope type.
+     */
+    public fun ensureValid(grants: Collection<Grant>) {
+        ensureKnown(grants.map { it.permission })
+        val invalid = grants.filterNot { isConsistent(byKey.getValue(it.permission), it.scope) }
+        if (invalid.isNotEmpty()) throw InvalidGrantException(invalid)
+    }
+
+    private fun isConsistent(
+        permission: PermissionDefinition,
+        scope: String?,
+    ): Boolean =
+        when (permission) {
+            is Permission -> scope == null
+            is ScopedPermission<*> -> scope == null || runCatching { permission.scopeType.parse(scope) }.isSuccess
+        }
 }

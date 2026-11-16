@@ -11,35 +11,71 @@ public enum class GrantLevel {
     USER,
 }
 
-/** A stored decision: [permission] (a catalog key) is granted or explicitly revoked at [level]. */
+/**
+ * A stored decision: [permission] (a catalog key) is granted or explicitly revoked at [level].
+ * For a scoped permission, [scope] is the scope key, or null for every scope.
+ */
 public data class Grant(
     val permission: String,
     val level: GrantLevel,
     val granted: Boolean,
+    val scope: String? = null,
 )
 
 /**
- * Turns the grants collected for one user into the set of effective permission keys.
+ * Turns the grants collected for one principal into [EffectivePermissions].
  *
- * For each permission the grant from the most specific level wins, and the permission is
- * effective only if that winning grant says `granted`. No grant at any level means no permission
- * (deny by default). Grants for keys that are no longer in the catalog - leftovers after a
- * permission was removed from code - are ignored.
+ * Precedence, for a permission on a given scope: the candidates are the grants without a scope and
+ * the grants for that scope. The most specific level wins (USER > GROUP > SYSTEM); on the same level
+ * a scoped grant beats a grant without a scope. A USER-level revocation without a scope therefore
+ * switches the permission off everywhere. The permission is held only if the winning grant says
+ * `granted` - no grant at all means no permission (deny by default).
+ *
+ * Grants that no longer match the catalog - an unknown key, or a scope on a global permission - are
+ * ignored, so a permission removed from code does not break login. Validate on write with
+ * [PermissionCatalog.ensureValid].
  */
 public class GrantResolver(
     private val catalog: PermissionCatalog,
 ) {
-    public fun resolve(grants: Iterable<Grant>): Set<String> =
-        grants
-            .groupBy { it.permission }
-            .filterKeys { it in catalog }
-            .filterValues { winner(it).granted }
-            .keys
+    public fun resolve(
+        grants: Iterable<Grant>,
+        principal: PrincipalKind = PrincipalKind.USER,
+    ): EffectivePermissions {
+        val global = mutableSetOf<String>()
+        val scoped = mutableMapOf<String, ScopeSet>()
+        for ((key, forPermission) in grants.groupBy { it.permission }) {
+            when (catalog[key]) {
+                is Permission -> if (winner(forPermission.filter { it.scope == null })?.granted == true) global += key
+                is ScopedPermission<*> -> scopesOf(forPermission)?.let { scoped[key] = it }
+                null -> Unit
+            }
+        }
+        return EffectivePermissions(principal, global, scoped)
+    }
 
-    private fun winner(grants: List<Grant>): Grant {
+    private fun scopesOf(grants: List<Grant>): ScopeSet? {
+        val everywhere = winner(grants.filter { it.scope == null })
+        val perScope =
+            grants
+                .filter { it.scope != null }
+                .groupBy { it.scope!! }
+                .mapValues { (_, forScope) -> winner(forScope)!! }
+                .mapValues { (_, scoped) -> if (everywhere != null && everywhere.level > scoped.level) everywhere.granted else scoped.granted }
+        val set =
+            if (everywhere?.granted == true) {
+                ScopeSet.allExcept(perScope.filterValues { !it }.keys)
+            } else {
+                ScopeSet.only(perScope.filterValues { it }.keys)
+            }
+        return set.takeUnless { it.isEmpty }
+    }
+
+    private fun winner(grants: List<Grant>): Grant? {
+        if (grants.isEmpty()) return null
         val top = grants.maxOf { it.level }
         val atTop = grants.filter { it.level == top }
-        require(atTop.map { it.granted }.distinct().size == 1) {
+        kotlin.require(atTop.map { it.granted }.distinct().size == 1) {
             "Conflicting grants for ${atTop.first().permission} at level $top"
         }
         return atTop.first()

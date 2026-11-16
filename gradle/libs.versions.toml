@@ -3,6 +3,7 @@ kotlin = "2.4.0"
 junit = "6.0.3"
 kotest = "6.2.3"
 konsist = "0.17.3"
+archunit = "1.5.1"
 spring-boot = "4.1.1"
 spring-security = "7.1.1"
 # AssertJ is needed on the compile classpath by ApplicationContextRunner (spring-boot-test).
@@ -14,6 +15,8 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
 konsist = { module = "com.lemonappdev:konsist", version.ref = "konsist" }
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+kotlin-compiler-embeddable = { module = "org.jetbrains.kotlin:kotlin-compiler-embeddable", version.ref = "kotlin" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
 spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "spring-boot" }
 spring-security-core = { module = "org.springframework.security:spring-security-core", version.ref = "spring-security" }

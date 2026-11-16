@@ -5,9 +5,9 @@ package com.osucha.portpermissions
  * cases, and hands the set over to the central [PermissionCatalog]:
  *
  * ```
- * object BillingPermissions : PermissionSet("billing") {
- *     val INVOICES_VIEW = permission("invoices.view", "View invoices")
- *     val INVOICES_ISSUE = permission("invoices.issue", "Issue invoices")
+ * object ProjectsPermissions : PermissionSet("projects") {
+ *     val PROJECTS_CREATE = permission("projects.create", "Create projects")      // Permission
+ *     val RUN_START = scoped("run.start", "Start and retry runs", PROJECT)        // ScopedPermission<ProjectId>
  * }
  * ```
  *
@@ -17,27 +17,45 @@ package com.osucha.portpermissions
 public abstract class PermissionSet(
     public val module: String,
 ) {
-    private val declared = linkedMapOf<String, Permission>()
+    private val declared = linkedMapOf<String, PermissionDefinition>()
 
     init {
-        require(SEGMENTS.matches(module)) { "Invalid module name '$module', expected e.g. 'billing'" }
+        kotlin.require(SEGMENTS.matches(module)) { "Invalid module name '$module', expected e.g. 'billing'" }
     }
 
     /** All permissions declared by this set, in declaration order. */
-    public val permissions: List<Permission>
+    public val permissions: List<PermissionDefinition>
         get() = declared.values.toList()
 
     protected fun permission(
         name: String,
         description: String,
-    ): Permission {
-        require(SEGMENTS.matches(name)) { "Invalid permission name '$name', expected e.g. 'invoices.view'" }
-        require(description.isNotBlank()) { "Permission $module.$name needs a description" }
-        val permission = Permission(module, name, description)
+    ): Permission = register(Permission(module, validName(name), validDescription(name, description)))
+
+    protected fun <S : Any> scoped(
+        name: String,
+        description: String,
+        scope: ScopeType<S>,
+    ): ScopedPermission<S> = register(ScopedPermission(module, validName(name), validDescription(name, description), scope))
+
+    private fun <P : PermissionDefinition> register(permission: P): P {
         check(declared.putIfAbsent(permission.key, permission) == null) {
             "Permission ${permission.key} is declared twice"
         }
         return permission
+    }
+
+    private fun validName(name: String): String {
+        kotlin.require(SEGMENTS.matches(name)) { "Invalid permission name '$name', expected e.g. 'invoices.view'" }
+        return name
+    }
+
+    private fun validDescription(
+        name: String,
+        description: String,
+    ): String {
+        kotlin.require(description.isNotBlank()) { "Permission $module.$name needs a description" }
+        return description
     }
 
     private companion object {
