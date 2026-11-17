@@ -7,7 +7,7 @@ repositories {
     mavenCentral()
 }
 
-val portPermissions = "0.2.0"
+val portPermissions = "0.2.1"
 
 dependencies {
     implementation("com.osucha:port-permissions-core:$portPermissions")

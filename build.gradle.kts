@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = "com.osucha"
-    version = "0.2.0"
+    version = "0.2.1"
 
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "maven-publish")

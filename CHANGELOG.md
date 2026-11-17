@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- `GrantResolver` threw `IllegalArgumentException` when two grants on the same level and with the same specificity disagreed, e.g. a user in two groups, one granting and one revoking a permission. Login of that user failed. The revocation now wins; `GrantResolver(catalog, SameLevelConflict.GRANT_WINS)` gives the union of group permissions instead.
+
 ## 0.2.0
 
 ### Added
