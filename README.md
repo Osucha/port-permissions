@@ -129,7 +129,7 @@ Grant("projects.run.start", GrantLevel.USER, granted = false, scope = "p-9")    
 | `GROUP`  | overrides the default for a group          |
 | `USER`   | overrides both for one person              |
 
-For a permission on a given scope, the candidates are the grants without a scope and the grants for that scope. **The most specific level wins; on the same level the scoped grant wins.** So a USER-level revocation without a scope switches the permission off everywhere, while a GROUP grant on every project plus a USER revocation on `p-9` gives "every project except `p-9`". No grant at all means no permission. Grants that no longer match the catalog are ignored, so removing a permission from code does not break login.
+For a permission on a given scope, the candidates are the grants without a scope and the grants for that scope. **The most specific level wins; on the same level the scoped grant wins.** So a USER-level revocation without a scope switches the permission off everywhere, while a GROUP grant on every project plus a USER revocation on `p-9` gives "every project except `p-9`". Opposite decisions on the same level and with the same specificity, typically from two groups of one user, are not an error: by default **the revocation wins**. `GrantResolver(catalog, SameLevelConflict.GRANT_WINS)` switches to the union of group permissions. No grant at all means no permission. Grants that no longer match the catalog are ignored, so removing a permission from code does not break login.
 
 ```kotlin
 val effective: EffectivePermissions = GrantResolver(catalog).resolve(grantsOfUser)
@@ -338,10 +338,10 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.Osucha.port-permissions:port-permissions-core:0.2.0")
-    implementation("com.github.Osucha.port-permissions:port-permissions-spring:0.2.0")        // optional
-    testImplementation("com.github.Osucha.port-permissions:port-permissions-test:0.2.0")      // optional
-    testImplementation("com.github.Osucha.port-permissions:port-permissions-archunit:0.2.0")  // optional
+    implementation("com.github.Osucha.port-permissions:port-permissions-core:0.2.1")
+    implementation("com.github.Osucha.port-permissions:port-permissions-spring:0.2.1")        // optional
+    testImplementation("com.github.Osucha.port-permissions:port-permissions-test:0.2.1")      // optional
+    testImplementation("com.github.Osucha.port-permissions:port-permissions-archunit:0.2.1")  // optional
 }
 ```
 

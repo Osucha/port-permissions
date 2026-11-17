@@ -5,7 +5,6 @@ import com.osucha.portpermissions.GrantLevel.SYSTEM
 import com.osucha.portpermissions.GrantLevel.USER
 import com.osucha.portpermissions.ProjectsPermissions.PROJECTS_CREATE
 import com.osucha.portpermissions.ProjectsPermissions.RUN_START
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.maps.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -18,6 +17,8 @@ class GrantResolverTest {
     private val view = BillingPermissions.INVOICES_VIEW.key
     private val issue = BillingPermissions.INVOICES_ISSUE.key
     private val start = RUN_START.key
+    private val unionOfGroups =
+        GrantResolver(PermissionCatalog(listOf(BillingPermissions, CustomersPermissions, ProjectsPermissions)), SameLevelConflict.GRANT_WINS)
 
     private fun global(vararg grants: Grant) = resolver.resolve(grants.toList()).global
 
@@ -68,8 +69,21 @@ class GrantResolverTest {
         }
 
         @Test
-        fun `conflicting grants on the same level are rejected`() {
-            shouldThrow<IllegalArgumentException> { global(Grant(view, GROUP, true), Grant(view, GROUP, false)) }
+        fun `two groups with opposite decisions - the revocation wins by default`() {
+            global(Grant(view, GROUP, true), Grant(view, GROUP, false)).shouldBeEmpty()
+            global(Grant(view, GROUP, false), Grant(view, GROUP, true)).shouldBeEmpty()
+        }
+
+        @Test
+        fun `two groups with opposite decisions - the grant wins when configured`() {
+            unionOfGroups.resolve(listOf(Grant(view, GROUP, false), Grant(view, GROUP, true))).global shouldBe setOf(view)
+        }
+
+        @Test
+        fun `a same-level conflict does not override a higher level`() {
+            global(Grant(view, GROUP, true), Grant(view, GROUP, false), Grant(view, USER, true)) shouldBe setOf(view)
+            unionOfGroups.resolve(listOf(Grant(view, GROUP, true), Grant(view, GROUP, false), Grant(view, USER, false))).global
+                .shouldBeEmpty()
         }
 
         @Test
@@ -115,6 +129,26 @@ class GrantResolverTest {
         fun `per scope the most specific level wins`() {
             scopes(Grant(start, GROUP, true, "p-1"), Grant(start, USER, false, "p-1"), Grant(start, SYSTEM, true, "p-2")) shouldBe
                 ScopeSet.only(setOf("p-2"))
+        }
+
+        @Test
+        fun `two groups with opposite decisions on one scope - the revocation wins by default`() {
+            scopes(Grant(start, GROUP, true, "p-1"), Grant(start, GROUP, false, "p-1")) shouldBe null
+            scopes(Grant(start, GROUP, true), Grant(start, GROUP, true, "p-1"), Grant(start, GROUP, false, "p-1")) shouldBe
+                ScopeSet.allExcept(setOf("p-1"))
+        }
+
+        @Test
+        fun `two groups with opposite decisions on every scope - the revocation wins by default`() {
+            scopes(Grant(start, GROUP, true), Grant(start, GROUP, false)) shouldBe null
+        }
+
+        @Test
+        fun `two groups with opposite decisions on one scope - the grant wins when configured`() {
+            unionOfGroups.resolve(listOf(Grant(start, GROUP, false, "p-1"), Grant(start, GROUP, true, "p-1"))).scoped[start] shouldBe
+                ScopeSet.only(setOf("p-1"))
+            unionOfGroups.resolve(listOf(Grant(start, GROUP, false), Grant(start, GROUP, true))).scoped[start] shouldBe
+                ScopeSet.allExcept()
         }
 
         @Test

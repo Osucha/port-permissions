@@ -31,12 +31,19 @@ public data class Grant(
  * switches the permission off everywhere. The permission is held only if the winning grant says
  * `granted` - no grant at all means no permission (deny by default).
  *
+ * Opposite decisions on the same level and with the same specificity - typically two groups of the
+ * user, one granting and one revoking - are settled by [sameLevelConflict]: by default the
+ * revocation wins ([SameLevelConflict.DENY_WINS]); [SameLevelConflict.GRANT_WINS] gives the union of
+ * group permissions instead. Such a conflict arises only from combining memberships, so it cannot be
+ * rejected on write.
+ *
  * Grants that no longer match the catalog - an unknown key, or a scope on a global permission - are
  * ignored, so a permission removed from code does not break login. Validate on write with
  * [PermissionCatalog.ensureValid].
  */
 public class GrantResolver(
     private val catalog: PermissionCatalog,
+    private val sameLevelConflict: SameLevelConflict = SameLevelConflict.DENY_WINS,
 ) {
     public fun resolve(
         grants: Iterable<Grant>,
@@ -75,9 +82,16 @@ public class GrantResolver(
         if (grants.isEmpty()) return null
         val top = grants.maxOf { it.level }
         val atTop = grants.filter { it.level == top }
-        kotlin.require(atTop.map { it.granted }.distinct().size == 1) {
-            "Conflicting grants for ${atTop.first().permission} at level $top"
-        }
-        return atTop.first()
+        val preferred = sameLevelConflict == SameLevelConflict.GRANT_WINS
+        return atTop.firstOrNull { it.granted == preferred } ?: atTop.first()
     }
+}
+
+/** How [GrantResolver] settles opposite decisions on the same level and with the same specificity. */
+public enum class SameLevelConflict {
+    /** The revocation wins - the safe default. */
+    DENY_WINS,
+
+    /** The grant wins - permissions of all groups add up. */
+    GRANT_WINS,
 }
